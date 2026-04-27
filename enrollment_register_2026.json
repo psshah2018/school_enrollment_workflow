@@ -1,0 +1,527 @@
+{
+  "name": "Enrollment Register 2026",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ba438d71-15cf-4200-813f-d510be660871",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "fileSelector": "C:\\Users\\parag\\Documents\\Meadows Working Docs\\Welcome Kit 2026\\Registration Forms 2026\\*.pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "74f67f73-046c-4fbc-b13b-ba6bd168b5a4",
+      "name": "Read PDF Files from Disk"
+    },
+    {
+      "parameters": {
+        "fileSelector": "C:\\Users\\parag\\Documents\\Meadows Working Docs\\Welcome Kit 2026\\Registration Forms 2026\\*.docx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        192
+      ],
+      "id": "824bc0c0-6c99-4435-8fd8-b432aa20b70b",
+      "name": "Read Word Files From Disk"
+    },
+    {
+      "parameters": {
+        "fileSelector": "C:\\Users\\parag\\Documents\\Meadows Working Docs\\Welcome Kit 2026\\Registration Forms 2026\\juan_bambach\\*.jpg",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        416
+      ],
+      "id": "094bf6ee-a631-48d1-854c-f5e39abdc415",
+      "name": "Read Image JPG Files From Disk"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        0
+      ],
+      "id": "02739cee-7737-47be-85cc-031a3ef74ad5",
+      "name": "Extract Text from PDF File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const mammoth = require('mammoth');\nconst results = [];\nconst items = $input.all();\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  try {\n    const binaryData = item.binary?.data;\n\n    if (!binaryData) {\n      throw new Error(\"No binary data found in this item.\");\n    }\n\n    // Pass the current index i, not hardcoded 0\n    const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');\n\n    const result = await mammoth.extractRawText({ buffer });\n\n    results.push({\n      json: {\n        filename: binaryData.fileName,\n        extractedText: result.value,\n        mimeType: binaryData.mimeType\n      }\n    });\n  } catch (error) {\n    results.push({\n      json: {\n        error: error.message,\n        itemStatus: \"failed\"\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        208
+      ],
+      "id": "cd7db86b-6ac3-49e4-9201-7a00bb9309bd",
+      "name": "Extract Text from Word File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  try {\n    const binaryData = item.binary?.data;\n    if (!binaryData) throw new Error(\"No binary data found.\");\n\n    const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');\n    const base64 = buffer.toString('base64');\n    const filename = binaryData.fileName || `file_${i}`;\n\n    results.push({\n      json: {\n        filename,\n        base64,\n        mimeType: binaryData.mimeType\n      }\n    });\n\n  } catch (error) {\n    results.push({\n      json: {\n        filename: item.binary?.data?.fileName || 'unknown',\n        error: error.message,\n        itemStatus: 'failed'\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        400
+      ],
+      "id": "893da4cd-e294-419d-a67f-6a7bd02fc117",
+      "name": "Convert Image to Base64"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vision.googleapis.com/v1/images:annotate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCloudNaturalLanguageOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"image\": {\n        \"content\": \"{{ $json.base64 }}\"\n      },\n      \"features\": [\n        {\n          \"type\": \"DOCUMENT_TEXT_DETECTION\"\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        848,
+        400
+      ],
+      "id": "6ae80e00-8242-4d5d-9ec1-5ee2a0d50949",
+      "name": "Extract Text From Image File",
+      "credentials": {
+        "googleCloudNaturalLanguageOAuth2Api": {
+          "id": "3tETO93vsooBBDqR",
+          "name": "Google Cloud Natural Language account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    model: \"gpt-4o-mini\",\n    max_tokens: 1024,\n    temperature: 0.1,\n    messages: [\n      {\n        role: \"system\",\n        content: \"You are a data entry agent. Extract structured information from enrollment form. Return ONLY valid JSON, no markdown fences, no explanation. The dates are always represented in dd/mm/yyyy or dd-mm/yyyy format. Return all dates in dd/mm/yyyy format.\"\n      },\n      {\n        role: \"user\",\n        filename: $('Read PDF Files from Disk').item.json.fileName,\n        content: \"Analyze the enrollment form from: \" + $('Read PDF Files from Disk').item.json.fileName +\n          \"\\n\\nEXTRACTEDTEXT:\\n\" + $json.text +\n          \"\\n\\nReturn JSON with exactly these fields:\\n\" +\n          JSON.stringify({\n            filename: $('Read PDF Files from Disk').item.json.fileName,\n            start_date: \"date\",\n            time_slot: \"string\",\n            child_father_surname: \"string\",\n            child_mother_surname: \"string\",\n            child_name: \"string\",\n            DNI: \"string\",\n            nationality: \"string\",\n            birth_date: \"date\",\n            religion: \"string\",\n            address: \"string\",\n            mother_name: \"string\",\n            mother_place_of_work: \"string\",\n            mother_phone: \"string\",\n            mother_mobile: \"string\",\n            mother_email: \"string\",\n            father_name: \"string\",\n            father_place_of_work: \"string\",\n            father_phone: \"string\",\n            father_mobile: \"string\",\n            father_email: \"string\",\n            diseases: \"string\",\n            allergies: \"string\",\n            isapre: \"string\"\n\n            \n          }, null, 2)\n      }\n    ]\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        848,
+        0
+      ],
+      "id": "a09b1a59-6266-40ab-83d4-2ed03d4c3559",
+      "name": "PDF Fields Mapping OpenAI API Call",
+      "credentials": {
+        "openAiApi": {
+          "id": "btt3s54CEvsfy9tv",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    model: \"gpt-4o-mini\",\n    max_tokens: 1024,\n    temperature: 0.1,\n    messages: [\n      {\n        role: \"system\",\n        content: \"You are a data entry agent. Extract structured information from enrollment form. Return ONLY valid JSON, no markdown fences, no explanation. The dates are always represented in dd/mm/yyyy or dd-mm/yyyy format. Return all dates in dd/mm/yyyy format.\"\n      },\n      {\n        role: \"user\",\n        filename: $json.filename,\n        content: \"Analyze the enrollment form from: \" + $json.fileName +\n          \"\\n\\nEXTRACTEDTEXT:\\n\" + $json.extractedText +\n          \"\\n\\nReturn JSON with exactly these fields:\\n\" +\n          JSON.stringify({\n            filename: $json.filename,\n            start_date: \"date\",\n            time_slot: \"string\",\n            child_father_surname: \"string\",\n            child_mother_surname: \"string\",\n            child_name: \"string\",\n            DNI: \"string\",\n            nationality: \"string\",\n            birth_date: \"date\",\n            religion: \"string\",\n            address: \"string\",\n            mother_name: \"string\",\n            mother_place_of_work: \"string\",\n            mother_phone: \"string\",\n            mother_mobile: \"string\",\n            mother_email: \"string\",\n            father_name: \"string\",\n            father_place_of_work: \"string\",\n            father_phone: \"string\",\n            father_mobile: \"string\",\n            father_email: \"string\",\n            diseases: \"string\",\n            allergies: \"string\",\n            isapre: \"string\"\n\n            \n          }, null, 2)\n      }\n    ]\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        848,
+        208
+      ],
+      "id": "ae14a54a-e131-4b4e-9f60-9213362dafae",
+      "name": "DOCX Fields Mapping OpenAI API Call",
+      "credentials": {
+        "openAiApi": {
+          "id": "btt3s54CEvsfy9tv",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    model: \"gpt-4o-mini\",\n    max_tokens: 1024,\n    temperature: 0.1,\n    messages: [\n      {\n        role: \"system\",\n        content: \"You are a data entry agent. Extract structured information from enrollment form. Return ONLY valid JSON, no markdown fences, no explanation. The dates are always represented in dd/mm/yyyy or dd-mm/yyyy format. Return all dates in dd/mm/yyyy format.\"\n      },\n      {\n        role: \"user\",\n        filename: $('Read Image JPG Files From Disk').item.json.fileName,\n        content: \"Analyze the enrollment form from: \" + $('Read Image JPG Files From Disk').item.json.fileName +\n          \"\\n\\nEXTRACTEDTEXT:\\n\" + $json.responses[0].textAnnotations[0].description +\n          \"\\n\\nReturn JSON with exactly these fields:\\n\" +\n          JSON.stringify({\n            filename: $('Read Image JPG Files From Disk').item.json.fileName,\n            start_date: \"date\",\n            time_slot: \"string\",\n            child_father_surname: \"string\",\n            child_mother_surname: \"string\",\n            child_name: \"string\",\n            DNI: \"string\",\n            nationality: \"string\",\n            birth_date: \"date\",\n            religion: \"string\",\n            address: \"string\",\n            mother_name: \"string\",\n            mother_place_of_work: \"string\",\n            mother_phone: \"string\",\n            mother_mobile: \"string\",\n            mother_email: \"string\",\n            father_name: \"string\",\n            father_place_of_work: \"string\",\n            father_phone: \"string\",\n            father_mobile: \"string\",\n            father_email: \"string\",\n            diseases: \"string\",\n            allergies: \"string\",\n            isapre: \"string\"\n\n            \n          }, null, 2)\n      }\n    ]\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1072,
+        400
+      ],
+      "id": "af273a84-8430-43d6-adb1-156d24741812",
+      "name": "Image Fields Mapping OpenAI API Call",
+      "credentials": {
+        "openAiApi": {
+          "id": "btt3s54CEvsfy9tv",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1312,
+        64
+      ],
+      "id": "d7946fab-11af-4907-8f16-6ef39c1c3e90",
+      "name": "Merge all Records",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst items = $input.all();\n\nfor (const item of items) {\n  const response = item.json;\n  const raw = response.choices[0].message.content;\n  const clean = raw.replace(/```json|```/gi, '').trim();\n\n  let parsed;\n  try {\n    parsed = JSON.parse(clean);\n  } catch(e) {\n    throw new Error('Invalid JSON: ' + raw.slice(0, 300));\n  }\n\n/**\n\nif (!parsed.child_name || typeof parsed.child_name !== 'string' || parsed.child_name.trim() === '') {\n    throw new Error(\n      'OpenAI response missing or empty child_name field.' +\n      '\\nRaw response: ' + clean.slice(0, 300)\n    );\n  }\n **/\n\n\n  results.push({\n    json: {\n      start_date: parsed.start_date,\n      child_father_surname: parsed.child_father_surname,\n      child_mother_surname: parsed.child_mother_surname,\n      child_name: parsed.child_name,\n      time_slot: parsed.time_slot,\n      DNI: parsed.DNI,\n      nationality: parsed.nationality,\n      birth_date: parsed.birth_date,\n      religion: parsed.religion,\n      address: parsed.address,\n      mother_name: parsed.mother_name,\n      mother_place_of_work: parsed.mother_place_of_work,\n      mother_phone: parsed.mother_phone,\n      mother_mobile: parsed.mother_mobile,\n      mother_email: parsed.mother_email,\n      father_name: parsed.father_name,\n      father_place_of_work: parsed.father_place_of_work,\n      father_phone1: parsed.father_phone,\n      father_mobile: parsed.father_mobile,\n      father_email: parsed.father_email,\n      diseases: parsed.diseases,\n      allergies: parsed.allergies,\n      isapre: parsed.isapre,\n      filename: parsed.filename\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        80
+      ],
+      "id": "cfbd4b07-2e73-434a-9f0c-896ad4147792",
+      "name": "Parse Response",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "C:\\Users\\parag\\Documents\\Meadows Working Docs\\Welcome Kit 2026\\Registration Forms 2026\\output.xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1984,
+        80
+      ],
+      "id": "472d2f1e-c7c9-485d-afa7-cb17a106b58f",
+      "name": "Write to File on Disk",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst XLSX = require('xlsx');\n\n// Extract JSON data from all items\nconst data = items.map(item => item.json);\n\n// Create worksheet from JSON array\nconst worksheet = XLSX.utils.json_to_sheet(data);\n\n// Create workbook and append worksheet\nconst workbook = XLSX.utils.book_new();\nXLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');\n\n// Write to buffer\nconst buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });\n\n// Convert buffer to base64 for n8n binary\nconst base64 = buffer.toString('base64');\n\nreturn [{\n  json: {\n    fileName: 'output.xlsx'\n  },\n  binary: {\n    data: {\n      data: base64,\n      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n      fileName: 'output.xlsx',\n      fileExtension: 'xlsx'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        80
+      ],
+      "id": "4776d12a-fbec-45ce-bf96-d5c42e4db7ae",
+      "name": "Create XLSX Binary File",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst items = $input.all();\n\nfor (const item of items) {\n  const response = item.json;\n  const raw = response.choices[0].message.content;\n  const clean = raw.replace(/```json|```/gi, '').trim();\n\n  let parsed;\n  try {\n    parsed = JSON.parse(clean);\n  } catch(e) {\n    throw new Error('Invalid JSON: ' + raw.slice(0, 300));\n  }\n\n/**\n\nif (!parsed.child_name || typeof parsed.child_name !== 'string' || parsed.child_name.trim() === '') {\n    throw new Error(\n      'OpenAI response missing or empty child_name field.' +\n      '\\nRaw response: ' + clean.slice(0, 300)\n    );\n  }\n **/\n\n\n  results.push({\n    json: {\n      RUT: parsed.DNI.replace(/[\\. ]/g, ''),\n      RAZONSOCIAL: parsed.child_name + \" \" + parsed.child_mother_surname + \" \" + parsed.child_father_surname,\n      DIRECCION: parsed.address,\n      CONTACTO: parsed.mother_name\n    }  \n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        272
+      ],
+      "id": "ae5f81cf-be1b-4050-98d3-e4603efd6f8d",
+      "name": "Parse Response1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "C:\\Users\\parag\\Documents\\Meadows Working Docs\\Welcome Kit 2026\\Registration Forms 2026\\nubox.csv",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1984,
+        272
+      ],
+      "id": "3461cdb5-efdf-4b01-98f1-e6a8dec024eb",
+      "name": "Write to File on Disk1",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst XLSX = require('xlsx');\n\n// Extract JSON data from all items\nconst data = items.map(item => item.json);\n\n// Create worksheet from JSON array\nconst worksheet = XLSX.utils.json_to_sheet(data);\n\n// Create workbook and append worksheet\nconst workbook = XLSX.utils.book_new();\nXLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');\n\n// Write to buffer\nconst buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });\n\n// Convert buffer to base64 for n8n binary\nconst base64 = buffer.toString('base64');\n\nreturn [{\n  json: {\n    fileName: 'output.xlsx'\n  },\n  binary: {\n    data: {\n      data: base64,\n      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n      fileName: 'nubox.csv',\n      fileExtension: 'csv'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        272
+      ],
+      "id": "750469cb-5ae3-4f8c-af07-04870e1414f9",
+      "name": "Create XLSX Binary File1",
+      "executeOnce": false
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read PDF Files from Disk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Word Files From Disk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Image JPG Files From Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract Text from PDF File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Word Files From Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract Text from Word File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Image JPG Files From Disk": {
+      "main": [
+        [
+          {
+            "node": "Convert Image to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from PDF File": {
+      "main": [
+        [
+          {
+            "node": "PDF Fields Mapping OpenAI API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from Word File": {
+      "main": [
+        [
+          {
+            "node": "DOCX Fields Mapping OpenAI API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Image to Base64": {
+      "main": [
+        [
+          {
+            "node": "Extract Text From Image File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text From Image File": {
+      "main": [
+        [
+          {
+            "node": "Image Fields Mapping OpenAI API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Fields Mapping OpenAI API Call": {
+      "main": [
+        [
+          {
+            "node": "Merge all Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DOCX Fields Mapping OpenAI API Call": {
+      "main": [
+        [
+          {
+            "node": "Merge all Records",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Image Fields Mapping OpenAI API Call": {
+      "main": [
+        [
+          {
+            "node": "Merge all Records",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge all Records": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Create XLSX Binary File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create XLSX Binary File": {
+      "main": [
+        [
+          {
+            "node": "Write to File on Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response1": {
+      "main": [
+        [
+          {
+            "node": "Create XLSX Binary File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create XLSX Binary File1": {
+      "main": [
+        [
+          {
+            "node": "Write to File on Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to File on Disk1": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6f9ec85a-f13e-4753-9c03-447274199260",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6615b656b8371fddd13c58341e0cea8d6dcdf664a545af635d49e593619368af"
+  },
+  "id": "ZBx7EzvQs0YD5H84",
+  "tags": []
+}

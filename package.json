@@ -1,0 +1,23 @@
+{
+  "name": "school-enrollment-workflow",
+  "version": "1.0.0",
+  "description": "n8n workflow automation for school enrollment processing",
+  "main": "index.js",
+  "scripts": {
+    "start": "n8n start",
+    "dev": "n8n start --tunnel",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "n8n",
+    "workflow",
+    "enrollment",
+    "school"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}
